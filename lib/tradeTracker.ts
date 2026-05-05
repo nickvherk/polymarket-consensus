@@ -134,7 +134,7 @@ function computeSummary(ws: WalletStore): WalletSummary {
   const pending = ws.trades.filter((t) => t.outcome === "PENDING");
   const realizedPnl = resolved.reduce((s, t) => s + t.pnl, 0);
   const pendingCapital = pending.reduce((s, t) => s + t.copySize + t.copyFee, 0);
-  const balance = STARTING_BALANCE + realizedPnl - pendingCapital;
+  const balance = STARTING_BALANCE + realizedPnl;
   const volume = ws.trades.reduce((s, t) => s + t.size, 0);
   const totalCopyFees = ws.trades.reduce((s, t) => s + t.copyFee, 0);
   return {
@@ -174,9 +174,9 @@ export async function pollAndUpdate(): Promise<WalletSummary[]> {
       console.log(`[tradeTracker] ${wallet.name}: ${newTrades.length} new trades`);
     }
 
-    // Compute available balance from current summary
+    // Free cash = settled balance minus capital already in pending positions
     const currentSummary = computeSummary(ws);
-    let availableBalance = currentSummary.balance;
+    let availableBalance = currentSummary.balance - currentSummary.pendingCapital;
 
     for (const raw of newTrades) {
       ws.seenHashes.push(raw.transactionHash);
