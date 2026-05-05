@@ -1,65 +1,100 @@
-import Image from "next/image";
+import { fetchBitcoinMarkets, parseOutcomes } from "@/lib/polymarket";
 
-export default function Home() {
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
+}
+
+function PriceBadge({ label, price }: { label: string; price: number }) {
+  const pct = (price * 100).toFixed(1);
+  const isYes = label.toLowerCase() === "yes";
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="flex flex-col items-center">
+      <span className="text-xs text-gray-500 mb-1">{label}</span>
+      <span
+        className={`text-sm font-semibold px-2 py-0.5 rounded ${
+          isYes
+            ? "bg-emerald-900/50 text-emerald-400"
+            : "bg-rose-900/50 text-rose-400"
+        }`}
+      >
+        {pct}¢
+      </span>
     </div>
+  );
+}
+
+export default async function Home() {
+  const markets = await fetchBitcoinMarkets();
+
+  return (
+    <main className="min-h-screen bg-[#0a0a0a] text-gray-100 p-6 max-w-3xl mx-auto">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-white">
+          Polymarket Consensus Signal
+        </h1>
+        <p className="text-gray-500 text-sm mt-1">
+          Active BTC markets · prices refresh every 30s
+        </p>
+      </div>
+
+      {markets.length === 0 ? (
+        <div className="text-gray-500 text-center py-16">
+          No active Bitcoin markets found. Check console for raw API response.
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {markets.map((market) => {
+            const outcomes = parseOutcomes(market);
+            return (
+              <li
+                key={market.id}
+                className="bg-[#141414] border border-gray-800 rounded-xl p-4 flex flex-col gap-3"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <p className="text-sm font-medium text-gray-100 leading-snug">
+                    {market.question}
+                  </p>
+                  <div className="flex gap-3 shrink-0">
+                    {outcomes.map((o) => (
+                      <PriceBadge key={o.label} {...o} />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-gray-600">
+                  <span>
+                    Vol 24h:{" "}
+                    <span className="text-gray-400">
+                      $
+                      {(market.volume24hr ?? 0).toLocaleString("en-US", {
+                        maximumFractionDigits: 0,
+                      })}
+                    </span>
+                  </span>
+                  <span>
+                    Closes{" "}
+                    <span className="text-gray-400">
+                      {formatDate(market.endDate)}
+                    </span>
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <p className="mt-8 text-xs text-gray-700 text-center">
+        Raw API response logged to server console · {markets.length} markets
+        loaded
+      </p>
+    </main>
   );
 }
