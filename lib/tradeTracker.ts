@@ -94,7 +94,7 @@ function saveStore(store: TradesStore): void {
 }
 
 async function fetchLatestTrades(walletAddress: string): Promise<DataApiTrade[]> {
-  const res = await fetch(`${DATA_API}/trades?user=${walletAddress}&limit=50`, { cache: "no-store" });
+  const res = await fetch(`${DATA_API}/trades?user=${walletAddress}&limit=200`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Data API ${res.status}`);
   return res.json();
 }
