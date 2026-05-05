@@ -185,10 +185,36 @@ function MiniChart({ data, positive }: { data: EquityPoint[]; positive: boolean 
   );
 }
 
-// ─── Falcon wallet cards (unchanged logic) ───────────────────────────────────
+// ─── Wallet cards (real trade data preferred, Falcon as fallback) ─────────────
 
-function WalletCard({ wallet, loading }: { wallet: WalletState; loading: boolean }) {
-  const pnlPositive = wallet.pnlTotal >= 0;
+function WalletCard({ wallet, summary, loading }: { wallet: WalletState; summary?: WalletSummary; loading: boolean }) {
+  const nowSec = Math.floor(Date.now() / 1000);
+  const todayStart = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
+
+  const hasReal = !!summary && summary.trades.length > 0;
+
+  const isActive = hasReal
+    ? summary!.trades[0].timestamp > nowSec - 86400
+    : wallet.isActive;
+
+  const balance = hasReal ? summary!.balance : wallet.balance;
+  const pnlTotal = hasReal ? summary!.balance - STARTING_BALANCE : wallet.pnlTotal;
+  const roi = hasReal ? ((summary!.balance / STARTING_BALANCE) - 1) * 100 : wallet.roi;
+
+  const resolved = hasReal ? summary!.trades.filter((t) => t.outcome !== "PENDING") : [];
+  const winRate = resolved.length > 0
+    ? resolved.filter((t) => t.outcome === "WIN").length / resolved.length
+    : wallet.winRate;
+
+  const todayTrades = hasReal ? summary!.trades.filter((t) => t.timestamp >= todayStart) : [];
+  const tradesToday = hasReal ? todayTrades.length : wallet.tradesToday;
+  const pnlToday = hasReal
+    ? todayTrades.filter((t) => t.outcome !== "PENDING").reduce((s, t) => s + t.pnl, 0)
+    : wallet.pnlToday;
+
+  const pendingCapital = summary?.pendingCapital ?? 0;
+  const pnlPositive = pnlTotal >= 0;
+
   return (
     <div className="bg-[#141414] border border-gray-800 rounded-2xl p-5 flex flex-col gap-4">
       <div className="flex items-start justify-between gap-2">
@@ -197,18 +223,28 @@ function WalletCard({ wallet, loading }: { wallet: WalletState; loading: boolean
           <p className="text-gray-600 text-xs font-mono mt-0.5">{wallet.address.slice(0, 6)}…{wallet.address.slice(-4)}</p>
         </div>
         <div className="flex flex-col items-end gap-1.5">
-          <StatusBadge active={wallet.isActive} />
+          <StatusBadge active={isActive} />
           {loading && <span className="text-xs text-gray-600 animate-pulse">Refreshing…</span>}
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         {[
-          { label: "Balance", value: fmtUsd(wallet.balance), color: "text-white" },
-          { label: "Total PnL", el: <PnlText value={wallet.pnlTotal} className="font-bold text-lg" /> },
-          { label: "ROI (7d)", value: fmtPct(wallet.roi), color: wallet.roi >= 0 ? "text-emerald-400" : "text-rose-400" },
-          { label: "PnL Today", el: <PnlText value={wallet.pnlToday} className="font-bold text-base" /> },
-          { label: "Trades Today", value: String(wallet.tradesToday), color: "text-white" },
-          { label: "Win Rate", value: `${(wallet.winRate * 100).toFixed(1)}%`, color: "text-white" },
+          {
+            label: "Copy Balance",
+            el: (
+              <div>
+                <p className="font-bold text-base text-white">{fmtUsd(balance)}</p>
+                {pendingCapital > 0 && (
+                  <p className="text-gray-600 text-xs mt-0.5">{fmtUsd(pendingCapital)} in play</p>
+                )}
+              </div>
+            ),
+          },
+          { label: "Total PnL", el: <PnlText value={pnlTotal} className="font-bold text-lg" /> },
+          { label: "ROI", value: fmtPct(roi), color: roi >= 0 ? "text-emerald-400" : "text-rose-400" },
+          { label: "PnL Today", el: <PnlText value={pnlToday} className="font-bold text-base" /> },
+          { label: "Trades Today", value: String(tradesToday), color: "text-white" },
+          { label: "Win Rate", value: `${(winRate * 100).toFixed(1)}%`, color: "text-white" },
         ].map(({ label, value, el, color }) => (
           <div key={label} className="bg-[#0d0d0d] rounded-xl p-3">
             <p className="text-gray-500 text-xs mb-1">{label}</p>
@@ -224,12 +260,24 @@ function WalletCard({ wallet, loading }: { wallet: WalletState; loading: boolean
   );
 }
 
-function CombinedCard({ wallets, loading }: { wallets: WalletState[]; loading: boolean }) {
-  const totalBalance = wallets.reduce((s, w) => s + w.balance, 0);
+function CombinedCard({ wallets, summaries, loading }: { wallets: WalletState[]; summaries: WalletSummary[]; loading: boolean }) {
+  const todayStart = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
+  const hasReal = summaries.length > 0;
+
+  const totalBalance = hasReal
+    ? summaries.reduce((s, w) => s + w.balance, 0)
+    : wallets.reduce((s, w) => s + w.balance, 0);
   const totalPnl = totalBalance - STARTING_BALANCE * wallets.length;
   const totalRoi = (totalPnl / (STARTING_BALANCE * wallets.length)) * 100;
-  const totalTrades = wallets.reduce((s, w) => s + w.tradesToday, 0);
-  const avgWinRate = wallets.reduce((s, w) => s + w.winRate, 0) / wallets.length;
+
+  const todayTrades = hasReal ? summaries.flatMap((s) => s.trades.filter((t) => t.timestamp >= todayStart)) : [];
+  const totalTrades = hasReal ? todayTrades.length : wallets.reduce((s, w) => s + w.tradesToday, 0);
+
+  const allResolved = hasReal ? summaries.flatMap((s) => s.trades.filter((t) => t.outcome !== "PENDING")) : [];
+  const avgWinRate = allResolved.length > 0
+    ? allResolved.filter((t) => t.outcome === "WIN").length / allResolved.length
+    : wallets.reduce((s, w) => s + w.winRate, 0) / wallets.length;
+
   const pnlPositive = totalPnl >= 0;
   const combinedEquity: EquityPoint[] = [];
   if (wallets.every((w) => w.equity.length > 0)) {
@@ -527,9 +575,16 @@ export default function PaperTradingDashboard() {
         ) : (
           <div className="flex flex-col gap-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {wallets.map((w) => <WalletCard key={w.address} wallet={w} loading={falconLoading} />)}
+              {wallets.map((w) => (
+                <WalletCard
+                  key={w.address}
+                  wallet={w}
+                  summary={tradeSummaries.find((s) => s.address === w.address)}
+                  loading={falconLoading || tradeLoading}
+                />
+              ))}
             </div>
-            <CombinedCard wallets={wallets} loading={falconLoading} />
+            <CombinedCard wallets={wallets} summaries={tradeSummaries} loading={falconLoading || tradeLoading} />
             <TradeFeedSection summaries={tradeSummaries} loading={tradeLoading} />
           </div>
         )}
