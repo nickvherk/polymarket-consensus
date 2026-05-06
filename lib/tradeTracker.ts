@@ -5,6 +5,9 @@ export const STARTING_BALANCE = 1000;
 const FEE_RATE = 0.018;
 const AFFILIATE_RATE = 0.0054; // 30% of 1.8% fee
 const MAX_TRADES_PER_WALLET = 500;
+// Trades older than this before startup are marked seen but not copied, so
+// the historical backfill on first poll doesn't exhaust the $1000 balance.
+const COPY_LOOKBACK_SEC = 3600; // 1 hour
 
 export const TRACKED_WALLETS = [
   { address: "0x6e1d5040d0ac73709b0621f620d2a60b80d2d0fa", name: "High Frequency" },
@@ -37,19 +40,20 @@ interface WalletStore {
   name: string;
   trades: TrackedTrade[];
   seenHashes: string[];
-  lastPolled: number;      // unix seconds of last successful fetch
-  totalDetected: number;   // cumulative new tx hashes seen since startup
+  lastPolled: number;     // unix seconds of last successful fetch
+  totalDetected: number;  // cumulative new tx hashes seen since startup
 }
 
 interface TradesStore {
   wallets: Record<string, WalletStore>;
   lastUpdated: number;
+  startedAt: number;  // unix seconds when the in-memory store was created
 }
 
 interface DataApiTrade {
   proxyWallet: string;
   side: "BUY" | "SELL";
-  outcome: string;        // "Yes" | "No"
+  outcome: string;  // "Yes" | "No"
   price: number;
   size: number;
   timestamp: number;
@@ -75,7 +79,7 @@ function initStore(): TradesStore {
       totalDetected: 0,
     };
   }
-  return { wallets, lastUpdated: 0 };
+  return { wallets, lastUpdated: 0, startedAt: Math.floor(Date.now() / 1000) };
 }
 
 function getStore(): TradesStore {
@@ -89,17 +93,34 @@ async function fetchLatestTrades(walletAddress: string): Promise<DataApiTrade[]>
   return res.json();
 }
 
+function parseJsonOrArray<T>(value: unknown): T[] {
+  if (Array.isArray(value)) return value as T[];
+  if (typeof value === "string") {
+    try { return JSON.parse(value) as T[]; } catch { return []; }
+  }
+  return [];
+}
+
 async function resolveCondition(conditionId: string): Promise<{ resolved: boolean; winningOutcome?: string }> {
   try {
     const res = await fetch(`${GAMMA_API}/markets?conditionId=${conditionId}`, { cache: "no-store" });
     if (!res.ok) return { resolved: false };
     const markets = await res.json();
     const market = Array.isArray(markets) ? markets[0] : markets;
-    if (!market?.closed) return { resolved: false };
-    const prices: string[] = JSON.parse(market.outcomePrices ?? "[]");
-    const outcomes: string[] = JSON.parse(market.outcomes ?? "[]");
-    const winIdx = prices.findIndex((p) => parseFloat(p) >= 0.99);
+    if (!market) return { resolved: false };
+
+    // Accept markets flagged closed OR resolved
+    if (!market.closed && !market.resolved) return { resolved: false };
+
+    const prices = parseJsonOrArray<string>(market.outcomePrices).map((p) => parseFloat(String(p)));
+    const outcomes = parseJsonOrArray<string>(market.outcomes);
+
+    if (prices.length === 0 || outcomes.length === 0) return { resolved: false };
+
+    // Find the winning outcome — price settled at >= 0.95 (Polymarket uses 0 and 1 when resolved)
+    const winIdx = prices.findIndex((p) => p >= 0.95);
     if (winIdx < 0) return { resolved: false };
+
     return { resolved: true, winningOutcome: outcomes[winIdx] };
   } catch {
     return { resolved: false };
@@ -146,6 +167,10 @@ function computeSummary(ws: WalletStore): WalletSummary {
 export async function pollAndUpdate(): Promise<WalletSummary[]> {
   const store = getStore();
   const nowSec = Math.floor(Date.now() / 1000);
+  // Only copy trades that occurred within COPY_LOOKBACK_SEC before startup.
+  // Historical trades beyond that window are marked seen to prevent re-detection
+  // but are NOT copied — this avoids exhausting the balance on the first poll.
+  const copyThresholdSec = store.startedAt - COPY_LOOKBACK_SEC;
 
   for (const wallet of TRACKED_WALLETS) {
     const ws = store.wallets[wallet.address];
@@ -167,7 +192,10 @@ export async function pollAndUpdate(): Promise<WalletSummary[]> {
     ws.totalDetected += newTrades.length;
 
     if (newTrades.length > 0) {
-      console.log(`[tradeTracker] ${wallet.name}: ${newTrades.length} new trades (${ws.totalDetected} total detected)`);
+      const copyable = newTrades.filter((t) => t.side === "BUY" && t.timestamp >= copyThresholdSec);
+      console.log(
+        `[tradeTracker] ${wallet.name}: ${newTrades.length} new (${copyable.length} copyable, threshold ${copyThresholdSec})`
+      );
     }
 
     // Free cash = settled balance minus capital already in pending positions
@@ -180,11 +208,17 @@ export async function pollAndUpdate(): Promise<WalletSummary[]> {
       // Only copy BUY trades; skip SELLs
       if (raw.side !== "BUY") continue;
 
+      // Skip historical trades to avoid exhausting the balance on first-poll backfill
+      if (raw.timestamp < copyThresholdSec) continue;
+
       const side: "YES" | "NO" = raw.outcome.toLowerCase() === "yes" ? "YES" : "NO";
       // Ensure copySize + copyFee never exceeds availableBalance
       const maxCopy = availableBalance / (1 + FEE_RATE);
       const copySize = Math.min(raw.size, Math.max(maxCopy, 0));
-      if (copySize < 0.01) continue; // skip dust (also handles exhausted balance)
+      if (copySize < 0.01) {
+        console.log(`[tradeTracker] ${wallet.name}: skipping trade — balance exhausted (available: ${availableBalance.toFixed(2)})`);
+        continue;
+      }
 
       const copyFee = Math.round(copySize * FEE_RATE * 100) / 100;
       availableBalance -= copySize + copyFee;
@@ -217,7 +251,7 @@ export async function pollAndUpdate(): Promise<WalletSummary[]> {
     if (ws.seenHashes.length > 2000) ws.seenHashes = ws.seenHashes.slice(-1000);
   }
 
-  // Resolve PENDING trades — check up to 10 unique conditions per poll
+  // Resolve PENDING trades — check all unique pending conditions in parallel
   const pendingConditions = new Set<string>();
   for (const ws of Object.values(store.wallets)) {
     for (const t of ws.trades) {
@@ -225,10 +259,18 @@ export async function pollAndUpdate(): Promise<WalletSummary[]> {
     }
   }
 
+  if (pendingConditions.size > 0) {
+    console.log(`[tradeTracker] Resolving ${pendingConditions.size} pending condition(s)`);
+  }
+
   const resolutionMap = new Map<string, { resolved: boolean; winningOutcome?: string }>();
   await Promise.all(
-    [...pendingConditions].slice(0, 10).map(async (condId) => {
-      resolutionMap.set(condId, await resolveCondition(condId));
+    [...pendingConditions].map(async (condId) => {
+      const result = await resolveCondition(condId);
+      resolutionMap.set(condId, result);
+      if (result.resolved) {
+        console.log(`[tradeTracker] Condition ${condId.slice(0, 10)}… resolved → ${result.winningOutcome}`);
+      }
     })
   );
 
@@ -243,6 +285,7 @@ export async function pollAndUpdate(): Promise<WalletSummary[]> {
       trade.pnl = won
         ? Math.round(((trade.copySize / trade.price) - trade.copySize - trade.copyFee) * 100) / 100
         : Math.round(-(trade.copySize + trade.copyFee) * 100) / 100;
+      console.log(`[tradeTracker] Trade ${trade.id.slice(0, 10)}… → ${trade.outcome} PnL ${trade.pnl}`);
     }
   }
 
