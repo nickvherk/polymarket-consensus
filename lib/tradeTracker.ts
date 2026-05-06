@@ -1,15 +1,10 @@
-import fs from "fs";
-import path from "path";
-
-// DATA_DIR env var lets Railway mount a volume (e.g. /data) for persistence across deploys
-const DATA_DIR = process.env.DATA_DIR ?? path.join(process.cwd(), "data");
-const DATA_FILE = path.join(DATA_DIR, "trades.json");
 const DATA_API = "https://data-api.polymarket.com";
 const GAMMA_API = "https://gamma-api.polymarket.com";
 
 export const STARTING_BALANCE = 1000;
 const FEE_RATE = 0.018;
 const AFFILIATE_RATE = 0.0054; // 30% of 1.8% fee
+const MAX_TRADES_PER_WALLET = 500;
 
 export const TRACKED_WALLETS = [
   { address: "0x6e1d5040d0ac73709b0621f620d2a60b80d2d0fa", name: "High Frequency" },
@@ -42,7 +37,8 @@ interface WalletStore {
   name: string;
   trades: TrackedTrade[];
   seenHashes: string[];
-  lastPolled: number;
+  lastPolled: number;      // unix seconds of last successful fetch
+  totalDetected: number;   // cumulative new tx hashes seen since startup
 }
 
 interface TradesStore {
@@ -62,35 +58,29 @@ interface DataApiTrade {
   transactionHash: string;
 }
 
+// In-memory store — survives between requests within one process instance.
+// Data is lost on restart, but seenHashes reset too so all recent trades
+// are re-detected on the first poll after startup.
+let _store: TradesStore | null = null;
+
 function initStore(): TradesStore {
   const wallets: Record<string, WalletStore> = {};
   for (const w of TRACKED_WALLETS) {
-    wallets[w.address] = { address: w.address, name: w.name, trades: [], seenHashes: [], lastPolled: 0 };
+    wallets[w.address] = {
+      address: w.address,
+      name: w.name,
+      trades: [],
+      seenHashes: [],
+      lastPolled: 0,
+      totalDetected: 0,
+    };
   }
   return { wallets, lastUpdated: 0 };
 }
 
-function loadStore(): TradesStore {
-  try {
-    const dir = path.dirname(DATA_FILE);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    if (!fs.existsSync(DATA_FILE)) return initStore();
-    const parsed = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8")) as TradesStore;
-    for (const w of TRACKED_WALLETS) {
-      if (!parsed.wallets[w.address]) {
-        parsed.wallets[w.address] = { address: w.address, name: w.name, trades: [], seenHashes: [], lastPolled: 0 };
-      }
-    }
-    return parsed;
-  } catch {
-    return initStore();
-  }
-}
-
-function saveStore(store: TradesStore): void {
-  const dir = path.dirname(DATA_FILE);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(DATA_FILE, JSON.stringify(store));
+function getStore(): TradesStore {
+  if (!_store) _store = initStore();
+  return _store;
 }
 
 async function fetchLatestTrades(walletAddress: string): Promise<DataApiTrade[]> {
@@ -127,6 +117,7 @@ export interface WalletSummary {
   totalCopyFees: number;
   trades: TrackedTrade[];
   lastPolled: number;
+  totalDetected: number;
 }
 
 function computeSummary(ws: WalletStore): WalletSummary {
@@ -148,11 +139,12 @@ function computeSummary(ws: WalletStore): WalletSummary {
     totalCopyFees: Math.round(totalCopyFees * 100) / 100,
     trades: ws.trades.slice().sort((a, b) => b.timestamp - a.timestamp),
     lastPolled: ws.lastPolled,
+    totalDetected: ws.totalDetected,
   };
 }
 
 export async function pollAndUpdate(): Promise<WalletSummary[]> {
-  const store = loadStore();
+  const store = getStore();
   const nowSec = Math.floor(Date.now() / 1000);
 
   for (const wallet of TRACKED_WALLETS) {
@@ -162,16 +154,20 @@ export async function pollAndUpdate(): Promise<WalletSummary[]> {
     try {
       rawTrades = await fetchLatestTrades(wallet.address);
       console.log(`[tradeTracker] ${wallet.name}: fetched ${rawTrades.length} trades`);
+      ws.lastPolled = nowSec;
     } catch (err) {
       console.error(`[tradeTracker] ${wallet.name} fetch error:`, err);
+      continue;
     }
 
     const newTrades = rawTrades
       .filter((t) => !ws.seenHashes.includes(t.transactionHash))
       .sort((a, b) => a.timestamp - b.timestamp); // oldest first
 
+    ws.totalDetected += newTrades.length;
+
     if (newTrades.length > 0) {
-      console.log(`[tradeTracker] ${wallet.name}: ${newTrades.length} new trades`);
+      console.log(`[tradeTracker] ${wallet.name}: ${newTrades.length} new trades (${ws.totalDetected} total detected)`);
     }
 
     // Free cash = settled balance minus capital already in pending positions
@@ -212,10 +208,13 @@ export async function pollAndUpdate(): Promise<WalletSummary[]> {
       });
     }
 
+    // Cap stored trades to avoid unbounded memory growth
+    if (ws.trades.length > MAX_TRADES_PER_WALLET) {
+      ws.trades = ws.trades.slice(-MAX_TRADES_PER_WALLET);
+    }
+
     // Cap seenHashes to avoid unbounded growth
     if (ws.seenHashes.length > 2000) ws.seenHashes = ws.seenHashes.slice(-1000);
-
-    ws.lastPolled = nowSec;
   }
 
   // Resolve PENDING trades — check up to 10 unique conditions per poll
@@ -248,12 +247,11 @@ export async function pollAndUpdate(): Promise<WalletSummary[]> {
   }
 
   store.lastUpdated = Date.now();
-  saveStore(store);
 
   return TRACKED_WALLETS.map((w) => computeSummary(store.wallets[w.address]));
 }
 
 export function getStoredSummaries(): WalletSummary[] {
-  const store = loadStore();
+  const store = getStore();
   return TRACKED_WALLETS.map((w) => computeSummary(store.wallets[w.address]));
 }

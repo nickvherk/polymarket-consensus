@@ -193,8 +193,9 @@ function WalletCard({ wallet, summary, loading }: { wallet: WalletState; summary
 
   const hasReal = !!summary && summary.trades.length > 0;
 
+  // Active = polling succeeded within the last 15 minutes
   const isActive = hasReal
-    ? summary!.trades[0].timestamp > nowSec - 86400
+    ? summary!.lastPolled > 0 && (nowSec - summary!.lastPolled) < 15 * 60
     : wallet.isActive;
 
   const balance = hasReal ? summary!.balance : wallet.balance;
@@ -224,6 +225,9 @@ function WalletCard({ wallet, summary, loading }: { wallet: WalletState; summary
         </div>
         <div className="flex flex-col items-end gap-1.5">
           <StatusBadge active={isActive} />
+          {summary && summary.lastPolled > 0 && (
+            <span className="text-xs text-gray-600">Polled {fmtRelTime(summary.lastPolled)}</span>
+          )}
           {loading && <span className="text-xs text-gray-600 animate-pulse">Refreshing…</span>}
         </div>
       </div>
@@ -404,13 +408,19 @@ function TradeFeedSection({ summaries, loading }: { summaries: WalletSummary[]; 
               <div>
                 <p className="text-gray-400 text-xs font-medium">{s.name}</p>
                 <p className="text-gray-600 text-xs font-mono">{s.address.slice(0, 6)}…{s.address.slice(-4)}</p>
+                {s.lastPolled > 0 && (
+                  <p className="text-gray-600 text-xs mt-0.5">Polled {fmtRelTime(s.lastPolled)}</p>
+                )}
               </div>
               <div className="text-right">
                 <p className="text-gray-500 text-xs">Copy balance</p>
                 <p className={`font-bold text-sm ${s.balance >= STARTING_BALANCE ? "text-emerald-400" : "text-rose-400"}`}>
                   {fmtUsd(s.balance)}
                 </p>
-                <p className="text-gray-600 text-xs">{s.trades.length} trades · {s.trades.filter(t => t.outcome === "PENDING").length} pending</p>
+                <p className="text-gray-600 text-xs">{s.trades.length} copied · {s.trades.filter(t => t.outcome === "PENDING").length} pending</p>
+                {s.totalDetected > 0 && (
+                  <p className="text-gray-700 text-xs">{s.totalDetected} detected since startup</p>
+                )}
               </div>
             </div>
           ))}
