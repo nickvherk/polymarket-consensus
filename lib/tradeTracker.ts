@@ -1,5 +1,4 @@
 const DATA_API = "https://data-api.polymarket.com";
-const GAMMA_API = "https://gamma-api.polymarket.com";
 
 export const STARTING_BALANCE = 1000;
 const FEE_RATE = 0.018;
@@ -93,35 +92,17 @@ async function fetchLatestTrades(walletAddress: string): Promise<DataApiTrade[]>
   return res.json();
 }
 
-function parseJsonOrArray<T>(value: unknown): T[] {
-  if (Array.isArray(value)) return value as T[];
-  if (typeof value === "string") {
-    try { return JSON.parse(value) as T[]; } catch { return []; }
-  }
-  return [];
-}
+const CLOB_API = "https://clob.polymarket.com";
 
 async function resolveCondition(conditionId: string): Promise<{ resolved: boolean; winningOutcome?: string }> {
   try {
-    const res = await fetch(`${GAMMA_API}/markets?conditionId=${conditionId}`, { cache: "no-store" });
+    const res = await fetch(`${CLOB_API}/markets/${conditionId}`, { cache: "no-store" });
     if (!res.ok) return { resolved: false };
-    const markets = await res.json();
-    const market = Array.isArray(markets) ? markets[0] : markets;
-    if (!market) return { resolved: false };
-
-    // Accept markets flagged closed OR resolved
-    if (!market.closed && !market.resolved) return { resolved: false };
-
-    const prices = parseJsonOrArray<string>(market.outcomePrices).map((p) => parseFloat(String(p)));
-    const outcomes = parseJsonOrArray<string>(market.outcomes);
-
-    if (prices.length === 0 || outcomes.length === 0) return { resolved: false };
-
-    // Find the winning outcome — price settled at >= 0.95 (Polymarket uses 0 and 1 when resolved)
-    const winIdx = prices.findIndex((p) => p >= 0.95);
-    if (winIdx < 0) return { resolved: false };
-
-    return { resolved: true, winningOutcome: outcomes[winIdx] };
+    const market = await res.json();
+    const tokens: Array<{ outcome: string; winner: boolean }> = market?.tokens ?? [];
+    const winner = tokens.find((t) => t.winner === true);
+    if (!winner) return { resolved: false };
+    return { resolved: true, winningOutcome: winner.outcome };
   } catch {
     return { resolved: false };
   }
