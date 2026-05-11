@@ -1,0 +1,321 @@
+================================================================================
+  POLYMARKET WALLET DEEP ANALYSIS REPORT
+  Generated: 2026-05-11 10:13 UTC
+================================================================================
+
+WALLETS ANALYZED:
+  W1: 0x6e1d5040d0ac73709b0621f620d2a60b80d2d0fa  (High Frequency)
+  W2: 0x7dfcf54ea9b8e90e69af427e87e652e8aab2da6e  (Asymmetric)
+  W3: 0x06dc51826bc524d9a83770e7de9dd7e005b04524  (High Precision)
+
+DATA SOURCES:
+  - Polymarket Data API: trades paginated with limit=500 (all pages)
+  - Falcon API (agent 581): 7d window — includes pnl_last_30day & win_rate_last_30day fields
+  - Falcon 30d window: returned empty results (rate-limited/no data); 30d metrics from 7d response fields
+
+────────────────────────────────────────────────────────────────────────────────
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║         W2 — ASYMMETRIC  (0x7dfcf54ea9b8e90e69af427e87e652e8aab2da6e)       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+  STATUS: ⚠  NO DATA AVAILABLE
+
+  Polymarket Data API returned 0 trades for this address.
+  Falcon API (agent 581) returned empty results for both 7d and 30d windows.
+  Positions endpoint: empty. Activity endpoint: empty.
+  Address appears inactive, uses a different proxy wallet,
+  or trades exclusively through a non-indexed mechanism.
+  Recommendation: verify wallet address and check on Polymarket.com directly.
+
+────────────────────────────────────────────────────────────────────────────────
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║        W1 — HIGH FREQUENCY  (0x6e1d5040d0ac73709b0621f620d2a60b80d2d0fa)    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+  FOCUS: Bitcoin price prediction markets
+
+  ┌─ PERFORMANCE SUMMARY ─────────────────────────────────────────────────────
+  │
+  │  7-DAY WINDOW  (2026-05-05 → 2026-05-11, Falcon data)
+  │  ─────────────────────────────────────────────────────────────────────────
+  │  Total Trades:          18,448  (Falcon)  |  3,500 visible via Data API
+  │  Winning Trades:        170  (resolved markets)
+  │  Losing Trades:         109  (resolved markets)
+  │  Pending/Unresolved:    18,169
+  │  Win Rate (resolved):   60.93% (170 W / 109 L)
+  │  Gross PnL:             $74,831.26 USDC
+  │  Total Volume Invested: $2,264,433.60 USDC
+  │  ROI:                   3.3046%  ($74,831.26 / $2,264,433.60)
+  │  Fees Paid (1.8%):      $40,759.80 USDC (on total invested)
+  │  Net PnL after fees:    $34,071.46 USDC
+  │  Avg Trade Size:        $122.75
+  │  Days Active:           7
+  │  Markets Traded:        330 unique
+  │  Trades/Day (avg):      2,635
+  │  Best Market PnL:       $7,491.21
+  │  Worst Market PnL:      $-13,013.77
+  │
+  │  30-DAY METRICS  (from Falcon 7d response embedded fields)
+  │  ─────────────────────────────────────────────────────────────────────────
+  │  PnL Last 30d:          $642,151.27
+  │  Win Rate Last 30d:     59.44%
+  │
+  │  RISK METRICS
+  │  ─────────────────────────────────────────────────────────────────────────
+  │  Risk Level:            LOW
+  │  Sharpe Ratio:          0.5909
+  │  Sortino Ratio:         1.2720
+  │  Profit Factor:         1.1921
+  │  Max Drawdown:          42.76%
+  │  Calmar Ratio:          3.185
+  │  Annualized Return:     172.31%
+  │  Equity Curve:          volatile
+  │  Performance Trend:     improving
+  │  Sybil Risk:            False (score: 0)
+  │  Statistical Confidence:0.9926
+  │  Combined Risk Score:   10 / 10
+  │  Flagged Metrics:       {position_size_volatility}
+  │
+  │  TRADE SIZE DISTRIBUTION  (from Data API — last 3,500 trades)
+  │  ─────────────────────────────────────────────────────────────────────────
+  │  Trades in dataset:     3,500  (May 8–11, 3.1 days)
+  │  Buy orders:            3,500
+  │  Avg trade size:        $315.43
+  │  Median trade size:     $91.00
+  │  Largest single trade:  $31,120.00
+  │  Smallest trade:        $0.06
+  │  Total volume (dataset):$1,104,003.77
+  │  Avg entry price:       0.6025 (avg position probability)
+  │
+  │  DAILY TRADE FREQUENCY  (Data API last 3,500)
+  │  ─────────────────────────────────────────────────────────────────────────
+  │    2026-05-08: 2,036 trades
+  │    2026-05-09: 484 trades
+  │    2026-05-10: 432 trades
+  │    2026-05-11: 548 trades
+  │
+  │  TOP 10 MOST TRADED MARKETS  (last 3,500 trades)
+  │  ─────────────────────────────────────────────────────────────────────────
+  │     438x  Will the price of Bitcoin be above $80,000 on May 8?
+  │     336x  Bitcoin Up or Down on May 8?
+  │     250x  Will the price of Bitcoin be between $78,000 and $80,000 on May 8?
+  │     198x  Will the price of Bitcoin be between $80,000 and $82,000 on May 8?
+  │     146x  Bitcoin Up or Down on May 9?
+  │     124x  Will the price of Bitcoin be above $80,000 on May 9?
+  │      85x  Will Bitcoin reach $83,000 on May 10?
+  │      81x  Will Bitcoin reach $95,000 in May?
+  │      80x  Will Bitcoin dip to $80,000 on May 10?
+  │      80x  Will the price of Bitcoin be between $80,000 and $82,000 on May 10?
+  │
+  │  5 BIGGEST INDIVIDUAL TRADES
+  │  ─────────────────────────────────────────────────────────────────────────
+  │    $31,120.00 | BUY Yes @ 0.001 | Will the price of Bitcoin be above $82,000 on May 9?
+  │    $24,413.20 | BUY Yes @ 0.043 | Will Bitcoin reach $95,000 in May?
+  │    $15,560.00 | BUY Yes @ 0.001 | Will the price of Bitcoin be above $84,000 on May 10?
+  │    $13,340.00 | BUY Yes @ 0.001 | Will the price of Bitcoin be above $82,000 on May 9?
+  │    $11,613.01 | BUY Yes @ 0.073 | Will Bitcoin reach $95,000 in May?
+  └───────────────────────────────────────────────────────────────────────────
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║        W3 — HIGH PRECISION  (0x06dc51826bc524d9a83770e7de9dd7e005b04524)    ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+  FOCUS: Ethereum price prediction markets
+
+  ┌─ PERFORMANCE SUMMARY ─────────────────────────────────────────────────────
+  │
+  │  7-DAY WINDOW  (2026-05-05 → 2026-05-11, Falcon data)
+  │  ─────────────────────────────────────────────────────────────────────────
+  │  Total Trades:          6,641  (Falcon)  |  3,500 visible via Data API
+  │  Winning Trades:        320  (resolved markets)
+  │  Losing Trades:         131  (resolved markets)
+  │  Pending/Unresolved:    6,190
+  │  Win Rate (resolved):   70.95% (320 W / 131 L)
+  │  Gross PnL:             $56,135.83 USDC
+  │  Total Volume Invested: $1,031,177.28 USDC
+  │  ROI:                   5.4439%  ($56,135.83 / $1,031,177.28)
+  │  Fees Paid (1.8%):      $18,561.19 USDC (on total invested)
+  │  Net PnL after fees:    $37,574.64 USDC
+  │  Avg Trade Size:        $155.27
+  │  Days Active:           7
+  │  Markets Traded:        566 unique
+  │  Trades/Day (avg):      949
+  │  Best Market PnL:       $12,660.17
+  │  Worst Market PnL:      $-10,491.57
+  │
+  │  30-DAY METRICS  (from Falcon 7d response embedded fields)
+  │  ─────────────────────────────────────────────────────────────────────────
+  │  PnL Last 30d:          $188,618.04
+  │  Win Rate Last 30d:     67.75%
+  │
+  │  RISK METRICS
+  │  ─────────────────────────────────────────────────────────────────────────
+  │  Risk Level:            LOW
+  │  Sharpe Ratio:          0.6632
+  │  Sortino Ratio:         13.4948
+  │  Profit Factor:         1.4965
+  │  Max Drawdown:          0.00%
+  │  Calmar Ratio:          None
+  │  Annualized Return:     283.86%
+  │  Equity Curve:          volatile
+  │  Performance Trend:     improving
+  │  Sybil Risk:            False (score: 0)
+  │  Statistical Confidence:0.9877
+  │  Combined Risk Score:   10 / 10
+  │  Flagged Metrics:       {position_size_volatility}
+  │
+  │  TRADE SIZE DISTRIBUTION  (from Data API — last 3,500 trades)
+  │  ─────────────────────────────────────────────────────────────────────────
+  │  Trades in dataset:     3,500  (May 5–11, 6.8 days)
+  │  Buy orders:            3,500
+  │  Avg trade size:        $223.51
+  │  Median trade size:     $76.00
+  │  Largest single trade:  $10,500.00
+  │  Smallest trade:        $0.02
+  │  Total volume (dataset):$782,293.74
+  │  Avg entry price:       0.6536 (avg position probability)
+  │
+  │  DAILY TRADE FREQUENCY  (Data API last 3,500)
+  │  ─────────────────────────────────────────────────────────────────────────
+  │    2026-05-05: 211 trades
+  │    2026-05-06: 717 trades
+  │    2026-05-07: 851 trades
+  │    2026-05-08: 978 trades
+  │    2026-05-09: 244 trades
+  │    2026-05-10: 217 trades
+  │    2026-05-11: 282 trades
+  │
+  │  TOP 10 MOST TRADED MARKETS  (last 3,500 trades)
+  │  ─────────────────────────────────────────────────────────────────────────
+  │     189x  Will the price of Ethereum be above $2,300 on May 7?
+  │     172x  Ethereum Up or Down on May 8?
+  │     126x  Will the price of Ethereum be between $2,300 and $2,400 on May 7?
+  │      93x  Will the price of Ethereum be above $2,300 on May 8?
+  │      90x  Will the price of Ethereum be between $2,200 and $2,300 on May 7?
+  │      82x  Will Ethereum dip to $2,200 May 4-10?
+  │      76x  Will the price of Ethereum be between $2,300 and $2,400 on May 8?
+  │      65x  Will the price of Ethereum be above $2,400 on May 6?
+  │      62x  Will the price of Ethereum be between $2,200 and $2,300 on May 8?
+  │      61x  Will the price of Ethereum be between $2,400 and $2,500 on May 6?
+  │
+  │  5 BIGGEST INDIVIDUAL TRADES
+  │  ─────────────────────────────────────────────────────────────────────────
+  │    $10,500.00 | BUY Yes @ 0.001 | Will the price of Ethereum be above $2,300 on May 8?
+  │    $8,840.43 | BUY Yes @ 0.050 | Will the price of Ethereum be above $2,400 on May 6?
+  │    $8,670.00 | BUY Yes @ 0.034 | Will Ethereum reach $3,000 in May?
+  │    $8,153.82 | BUY No @ 0.525 | Will the price of Ethereum be above $2,300 on May 7?
+  │    $6,220.00 | BUY No @ 0.985 | Will the price of Ethereum be above $2,500 on May 11?
+  └───────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────
+
+  SIDE-BY-SIDE COMPARISON
+
+  Metric                              W1 (Hi-Freq, BTC)         W3 (Hi-Prec, ETH)        
+  ─────────────────────────────────── ───────────────────────── ─────────────────────────
+  Total Trades 7d                           18,448                     6,641
+  Win Rate 7d                               60.93%                    70.95%
+  Win Rate 30d                              59.44%                    67.75%
+  Gross PnL 7d                                $74,831.26                $56,135.83
+  PnL 30d                                    $642,151.27               $188,618.04
+  Total Invested 7d                        $2,264,433.60             $1,031,177.28
+  ROI 7d                                   3.3046%                   5.4439%
+  Avg Trade Size                                 $122.75                   $155.27
+  Trades/Day                                 2,635                       949
+  Markets Traded                               330                       566
+  Profit Factor                             1.1921                    1.4965
+  Sharpe Ratio                              0.5909                    0.6632
+  Sortino Ratio                             1.2720                   13.4948
+  Max Drawdown                              42.76%                     0.00%
+  Best Market                                  $7,491.21                $12,660.17
+  Worst Market                               $-13,013.77               $-10,491.57
+  Sybil Risk                                No (0)                    No (0)
+  Risk Level                                   LOW                       LOW
+
+────────────────────────────────────────────────────────────────────────────────
+
+  FEE ANALYSIS  (1.8% per trade on invested capital)
+
+  Metric                                   W1 (BTC)             W3 (ETH)            
+  ──────────────────────────────────────── ──────────────────── ────────────────────
+  Avg entry price (probability)            0.6025              0.6536
+  Break-even win rate needed               61.34%               66.53%              
+  Actual win rate 7d                       60.93%               70.95%              
+  Buffer above break-even 7d               -0.41%               4.42%               
+  Actual win rate 30d                      59.44%               67.75%              
+  Buffer above break-even 30d              -1.90%               1.22%               
+  Fees paid (7d, est.)                     $40,759.80           $18,561.19          
+  Net PnL after fees (7d)                  $34,071.46           $37,574.64          
+
+  * Break-even formula: WR_needed = avg_entry_price × (1 + 0.018)
+    This assumes binary markets where win = 1.0 payout, loss = 0.0
+    W1 is marginally below break-even 7d (-0.40pp) but above on 30d
+    W3 is solidly above break-even on both 7d (+4.41pp) and 30d (+1.21pp)
+
+────────────────────────────────────────────────────────────────────────────────
+
+  ESTIMATED AFFILIATE REVENUE
+  Assumption: 10% of fees generated by referred wallets
+  (Standard Polymarket affiliate rate on the 2% maker fee)
+  Using weekly volume = Falcon 7d total_invested
+
+  Metric                                        W1 (BTC)           W3 (ETH)          
+  ───────────────────────────────────────────── ────────────────── ──────────────────
+  Weekly volume (7d Falcon)                     $2,264,433.60      $1,031,177.28     
+  Weekly fees generated (1.8%)                  $40,759.80         $18,561.19        
+  Affiliate rev/copier/week (10% of fees)       $4,075.98          $1,856.12         
+
+   Community size |   W1 weekly rev |   W3 weekly rev |        COMBINED
+  ─────────────── | ─────────────── | ─────────────── | ───────────────
+            10 copiers |      $40,759.80 |      $18,561.19 |      $59,321.00
+            50 copiers |     $203,799.02 |      $92,805.96 |     $296,604.98
+           100 copiers |     $407,598.05 |     $185,611.91 |     $593,209.96
+
+  Monthly multiplier (×4.3 weeks):
+  ─────────────── | ─────────────── | ─────────────── | ───────────────
+            10 copiers |     $175,267.16 |      $79,813.12 |     $255,080.28
+            50 copiers |     $876,335.80 |     $399,065.61 |   $1,275,401.41
+           100 copiers |   $1,752,671.61 |     $798,131.21 |   $2,550,802.82
+
+  NOTE: These estimates assume copiers generate the SAME volume as the tracked
+  wallet. Retail copiers typically trade smaller sizes. Adjust proportionally.
+
+────────────────────────────────────────────────────────────────────────────────
+
+  ANALYST NOTES & RED FLAGS
+
+  W1 (High Frequency — BTC):
+  ✓  18,448 trades / 7 days = 2,635 trades/day — genuine high-frequency system
+  ✓  No sybil flag, no timing anomaly, no suspicious win rate flag
+  ✓  LOW risk level from Falcon, 99.26% statistical confidence
+  ⚠  position_size_volatility flagged — trade sizes range from $0.06 to $31,120
+  ⚠  7d win rate (60.93%) is slightly below break-even (61.33%) — fee-negative
+  ⚠  Dominant market PnL = -$13,013 — one market caused significant losses
+  ⚠  Profit factor of 1.1921 is thin — winning trades only 19.21% larger than losses
+  ⚠  Only 279 resolved trades out of 18,448 — vast majority still unresolved
+  ✓  30d data is more encouraging: $642,151 PnL, 59.44% win rate
+  ✓  Performance trend: IMPROVING
+
+  W3 (High Precision — ETH):
+  ✓  6,641 trades / 7 days = 948 trades/day — still extremely active
+  ✓  Win rate 70.95% vs break-even 66.54% — 4.41pp buffer (fee-positive!)
+  ✓  Profit factor 1.4965 — significantly stronger than W1
+  ✓  Sortino ratio 13.49 — exceptional downside risk management
+  ✓  No sybil flag, 98.77% statistical confidence
+  ✓  Performance trend: IMPROVING
+  ⚠  position_size_volatility flagged — stddev $2,735.41 vs avg $155.27
+  ⚠  Max drawdown = 0.00% (suspicious or reflects a very short track record)
+  ⚠  Only 451 resolved trades out of 6,641 — most positions still open
+  ⚠  $188,618 30d PnL is lower than implied 7d run-rate ($56K/wk × 4 = $224K)
+     → suggests a losing week in the prior 3 weeks, or the 7d pace is unsustainable
+
+  W2 (Asymmetric):
+  ✗  Zero on-chain activity found. Cannot evaluate this wallet.
+     Possible reasons: wrong address, not yet traded, trades on different chain,
+     or proxy wallet differs from the address provided.
+
+────────────────────────────────────────────────────────────────────────────────
+  Report generated on 2026-05-11. Data as of May 11, 2026.
+================================================================================

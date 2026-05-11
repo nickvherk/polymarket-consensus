@@ -4,6 +4,9 @@ export const STARTING_BALANCE = 1000;
 const FEE_RATE = 0.018;
 const AFFILIATE_RATE = 0.0054; // 30% of 1.8% fee
 const MAX_TRADES_PER_WALLET = 500;
+// Single trade is capped at this fraction of current portfolio balance.
+// At $1,000 starting balance this gives a $50 max position.
+const MAX_COPY_PCT = 0.05;
 // Trades older than this before startup are marked seen but not copied, so
 // the historical backfill on first poll doesn't exhaust the $1000 balance.
 const COPY_LOOKBACK_SEC = 3600; // 1 hour
@@ -193,8 +196,10 @@ export async function pollAndUpdate(): Promise<WalletSummary[]> {
       if (raw.timestamp < copyThresholdSec) continue;
 
       const side: "YES" | "NO" = raw.outcome.toLowerCase() === "yes" ? "YES" : "NO";
-      // Ensure copySize + copyFee never exceeds availableBalance
-      const maxCopy = availableBalance / (1 + FEE_RATE);
+      // Cap to 5% of current portfolio balance or available cash, whichever is smaller.
+      // This prevents a single large trade from wiping the simulation balance.
+      const positionBudget = Math.min(availableBalance, currentSummary.balance * MAX_COPY_PCT);
+      const maxCopy = positionBudget / (1 + FEE_RATE);
       const copySize = Math.min(raw.size, Math.max(maxCopy, 0));
       if (copySize < 0.01) {
         console.log(`[tradeTracker] ${wallet.name}: skipping trade — balance exhausted (available: ${availableBalance.toFixed(2)})`);
@@ -278,4 +283,16 @@ export async function pollAndUpdate(): Promise<WalletSummary[]> {
 export function getStoredSummaries(): WalletSummary[] {
   const store = getStore();
   return TRACKED_WALLETS.map((w) => computeSummary(store.wallets[w.address]));
+}
+
+// Clears all copied trades for a wallet, resetting its balance to STARTING_BALANCE.
+// seenHashes are preserved so already-detected trades are not re-copied on the next poll.
+export function resetWallet(address: string): boolean {
+  const store = getStore();
+  const ws = store.wallets[address];
+  if (!ws) return false;
+  ws.trades = [];
+  ws.totalDetected = 0;
+  store.lastUpdated = Date.now();
+  return true;
 }
